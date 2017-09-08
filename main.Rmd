@@ -1,0 +1,92 @@
+---
+title: "text"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+rm(list = ls())
+setwd("/eva/users/djf482/kaggle/")
+variant.tables = read.csv("training_variants", header = T)
+
+sentence.number = rep(0, nrow(variant.tables))
+prev.name = rep(0, nrow(variant.tables))
+key.sent = list()
+for (cnt in c(1: nrow(variant.tables)))
+  {
+  line.n = cnt
+  entry.id = as.character(variant.tables$Variation[cnt])
+  # text.line.n <- readLines(pipe("awk 'NR==5' training_text"))
+  awk.command = paste("awk 'NR==", line.n, "' training_text", sep = "")
+  text.line.n <- readLines(pipe(awk.command))
+  # scan('training_text', '', skip = 6, nlines = 1, sep = '\n')
+       
+  all.sent.line.n = strsplit(text.line.n, "(?<=\\.|\\?)\\s(?=[A-Z])", perl = TRUE)
+  sentence.number[cnt] = length(all.sent.line.n[[1]])
+  res = sapply(all.sent.line.n[[1]], function(x){return(grepl(entry.id, x))})
+  prev.name[cnt] = length(which(res))
+  key.sent[[cnt]] = all.sent.line.n[[1]][which(res)]
+}
+simple.feature = data.frame(prev.gene = prev.name, 
+                            sentence.length = sentence.number)
+
+save(simple.feature, key.sent, file = "simple.feature.rda")
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+setwd("/Users/Alireza/Develop/TextMiningOfGeneticVariants/")
+library(tidytext)
+library(dplyr)
+library(ggplot2)
+rm(list = ls())
+load("simple.feature.rda")
+
+#simple.feature[which(variant.tables$Class == 9),]
+#key.sent[which(variant.tables$Class == 9)]
+
+dat = readLines("training_text")
+dat[1]
+
+text_df <- data_frame(line = 1:9, text = dat[c(2:10)])
+
+word.df = text_df %>%
+  unnest_tokens(word, text) %>% anti_join(stop_words)
+
+dim(word.df[word.df$line %in% 2,])
+dim(word.df[word.df$line %in% 4,])
+
+word.df[word.df$line %in% 9,] %>%
+  count(word, sort = TRUE) 
+
+# plot 3 dar 3 mikhaym
+for (cnt in 1:9)
+{
+  rank.level = cnt
+  p = word.df[word.df$line %in% rank.level,] %>% count(word, sort = TRUE) %>% filter(n > 40) %>%
+    mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
+  result.name = paste("plots/rank_", rank.level, "_word_frequency.pdf", sep = "")
+  ggsave(p, file = result.name)
+}
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
