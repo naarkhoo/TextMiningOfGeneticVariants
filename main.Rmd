@@ -48,32 +48,35 @@ save(simple.feature, key.sent, file = "simple.feature.rda")
 You can also embed plots, for example:
 
 ```{r pressure, echo=FALSE}
-setwd("/Users/Alireza/Develop/TextMiningOfGeneticVariants/")
 library(tidytext)
 library(dplyr)
 library(ggplot2)
 rm(list = ls())
+source("aux.R")
 load("simple.feature.rda")
 
 #simple.feature[which(variant.tables$Class == 9),]
 #key.sent[which(variant.tables$Class == 9)]
 
 dat = readLines("training_text")
-dat[1]
+dat = dat[-1]
 
-text_df <- data_frame(line = 1:9, text = dat[c(2:10)])
+variant.tables = read.csv("training_variants", header = T)
+text_df <- data_frame(line = 1:(nrow(variant.tables)-1), 
+                      text = dat[c(1:(nrow(variant.tables)-1))],
+                      Gene = variant.tables[-1,]$Gene,
+                      Variation = variant.tables[-1,]$Variation,
+                      class = variant.tables[-1,]$Class
+                      )
 
 word.df = text_df %>%
   unnest_tokens(word, text) %>% anti_join(stop_words)
 
-dim(word.df[word.df$line %in% 2,])
-dim(word.df[word.df$line %in% 4,])
-
-word.df[word.df$line %in% 9,] %>%
-  count(word, sort = TRUE) 
+# table(word.df[word.df$line %in% 9,]$word)/length(word.df[word.df$line %in% 9,]$word)
+# word.df[word.df$line %in% 9,] %>% count(word, sort = TRUE) 
 
 # plot 3 dar 3 mikhaym
-for (cnt in 1:9)
+for (cnt in 1:max(word.df$line))
 {
   rank.level = cnt
   p = word.df[word.df$line %in% rank.level,] %>% count(word, sort = TRUE) %>% filter(n > 40) %>%
@@ -85,6 +88,52 @@ for (cnt in 1:9)
   result.name = paste("plots/rank_", rank.level, "_word_frequency.pdf", sep = "")
   ggsave(p, file = result.name)
 }
+
+# word.df  %>%
+#   count(word, sort = TRUE)
+
+library(tidyr)
+library(stringr) # extract string
+
+# make the line times word table 
+frequency.3c = mutate(word.df) %>% 
+  mutate(word = str_extract(word, "[a-z']+")) %>%
+  group_by(line) %>% count(word) %>% mutate(proportion = n / sum(n)) %>% select(-n) %>% spread(line, proportion) 
+
+library(scales)
+library(reshape)
+
+frequency.tab = data.frame(frequency.3c)
+frequency.tab.fl = frequency.tab[which(lapply(strsplit(frequency.tab$word, ""), length)>1), ]
+frequency.tab.fl[is.na(frequency.tab.fl)] <- 0
+rownames(frequency.tab.fl) = frequency.tab.fl$word
+frequency.tab.fl = frequency.tab.fl[,-1]
+
+#save(frequency.tab.fl, file = "frequency_table.rda")
+load("frequency_table.rda")
+frequency.tab.fl.t = t(frequency.tab.fl)
+
+# frequency.tab.fl.nrm = scale(frequency.tab.fl.t, center = T, scale = T)
+frequency.tab.fl.nrm = my.normalize(frequency.tab.fl.t)
+frequency.tab.fl.nrm.svd = svd(frequency.tab.fl.nrm)
+
+line.number = as.numeric(gsub("X", "", rownames(frequency.tab.fl.t)))
+# variant.tables[variant.tables$ID %in% line.number,]
+# merge(line.number, variant.tables, by = 0)
+
+fr.2.plot = data.frame(PC1 = frequency.tab.fl.nrm.svd$u[,1],
+                       PC2 = frequency.tab.fl.nrm.svd$u[,2],
+                       line.number = line.number,
+                       class = variant.tables[-1,]$Class,
+                       Gene = variant.tables[-1,]$Gene)
+
+# save(fr.2.plot, file = "freqeuncy_table_svd.rda")
+load("freqeuncy_table_svd.rda")
+p = ggplot(fr.2.plot, aes(x=PC1, y=PC2, color= factor(class)))
+p = p + geom_point(size=6)
+p = p + ggtitle("variation of word frequency")
+p
+
 
 
 ```
