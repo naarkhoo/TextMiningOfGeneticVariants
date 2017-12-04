@@ -107,15 +107,15 @@ frequency.tab = data.frame(frequency.3c)
 frequency.tab.fl = frequency.tab[which(lapply(strsplit(frequency.tab$word, ""), length)>1), ]
 frequency.tab.fl[is.na(frequency.tab.fl)] <- 0
 rownames(frequency.tab.fl) = frequency.tab.fl$word
-frequency.tab.fl = frequency.tab.fl[,-1]
+frequency.tab.fl = frequency.tab.fl[,-1] # remove the first row which is just id 
 
 #save(frequency.tab.fl, file = "frequency_table.rda")
 load("frequency_table.rda")
-frequency.tab.fl.t = t(frequency.tab.fl)
+frequency.tab.fl.t = t(frequency.tab.fl) # rotate
 
 # frequency.tab.fl.nrm = scale(frequency.tab.fl.t, center = T, scale = T)
-frequency.tab.fl.nrm = my.normalize(frequency.tab.fl.t)
-frequency.tab.fl.nrm.svd = svd(frequency.tab.fl.nrm)
+frequency.tab.fl.nrm = my.normalize(frequency.tab.fl.t) # this takes time
+frequency.tab.fl.nrm.svd = svd(frequency.tab.fl.nrm) # this takes time
 
 line.number = as.numeric(gsub("X", "", rownames(frequency.tab.fl.t)))
 # variant.tables[variant.tables$ID %in% line.number,]
@@ -133,6 +133,7 @@ p = ggplot(fr.2.plot, aes(x=PC1, y=PC2, color= factor(class)))
 p = p + geom_point(size=6)
 p = p + ggtitle("variation of word frequency")
 p
+ggsave(p, file = "pca_raw_table.pdf")
 
 
 
